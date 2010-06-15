@@ -1,11 +1,16 @@
 package Test::Structure;
-
 use warnings;
 use strict;
+use PPI;
+use File::Spec::Functions;
+
+my $CLASS = __PACKAGE__;
+
+use base 'Test::Builder::Module';
 
 =head1 NAME
 
-Test::Structure - The great new Test::Structure!
+Test::Structure - Test for the structure of a package 
 
 =head1 VERSION
 
@@ -15,37 +20,100 @@ Version 0.01
 
 our $VERSION = '0.01';
 
-
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+Have you ever wished that you could build tests based on the structure of a package, not 
+how a package acts. Ya me either, but I've bumped in to a situation where I needed it. 
 
-Perhaps a little code snippet.
+    use Test::Structure tests => 5;
 
-    use Test::Structure;
-
-    my $foo = Test::Structure->new();
-    ...
-
+    require_ok( 'My::Package' );
+    has_includes( 'My::Package', qw{My::Other::Package Some::Other::Package} );
+    has_subs( 'My::Package', qw{this that} );
+    has_commetns( 'My;::Package' );
+    has_pod( 'My::Package' );
+    
 =head1 EXPORT
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 SUBROUTINES/METHODS
-
-=head2 function1
-
 =cut
 
-sub function1 {
+our @EXPORT = qw{ has_includes 
+                  has_subs 
+                  has_comments 
+                  has_pod
+
+                  _pkg2path
+                  _doc
+               };
+
+sub _pkg2path { catfile( split /::/, shift ) . '.pm' };
+sub _doc { 
+   my $pkg = shift;
+   eval sprintf q{require %s}, $pkg;
+   PPI::Document->new( $INC{_pkg2path($pkg)} );
 }
 
-=head2 function2
+=head2 has_includes
 
 =cut
 
-sub function2 {
+sub has_includes ($@) {
+   my $pkg = shift;
+   my $tb  = $CLASS->builder;
+   my $doc = _doc($pkg);
+   my %inc = map{ $_->module => 1 }
+             @{ $doc->find('PPI::Statement::Include') } ;
+   my @missing =  grep{ ! $inc{$_} } @_ ;
+   $tb->ok(! scalar( @missing ) ) 
+      || $tb->diag( sprintf qq{Package %s is missing the following package%s%s}, 
+                            $pkg, 
+                            (scalar(@missing)>1) ? 's' : '', 
+                            join qq{\n - }, '', @missing 
+                  );
+}
+
+=head2 has_subs
+
+=cut
+
+sub has_subs {
+   my $pkg = shift;
+   my $tb  = $CLASS->builder;
+   my $doc = _doc($pkg);
+   my %subs = map {$_->name => 1} 
+              grep{ !$_->isa('PPI::Statement::Scheduled')} 
+              @{$doc->find('PPI::Statement::Sub')};
+
+   my @missing =  grep{ ! $subs{$_} } @_ ;
+   $tb->ok(! scalar( @missing ) ) 
+      || $tb->diag( sprintf qq{Package %s does not define the following sub%s%s}, 
+                            $pkg, 
+                            (scalar(@missing)>1) ? 's' : '', 
+                            join qq{\n - }, '', @missing 
+                  );
+}
+
+
+=head2 has_pod
+
+=cut
+
+sub has_pod ($) {
+   my $pkg = shift;
+   my $tb  = $CLASS->builder;
+   $tb->ok( _doc($pkg)->find_any('PPI::Token::Pod'), sprintf q{Package %s has POD.}, $pkg ) 
+      || $tb->diag( sprintf q{Package %s does not seem to have any POD.}, $pkg );
+}
+
+=head2 has_comments
+
+=cut
+
+sub has_comments ($) {
+   my $pkg = shift;
+   my $tb  = $CLASS->builder;
+   $tb->ok( _doc($pkg)->find_any('PPI::Token::Comment'), sprintf q{Package %s has comments.}, $pkg ) 
+      || $tb->diag( sprintf q{Package %s does not seem to have any comments.}, $pkg );
 }
 
 =head1 AUTHOR
@@ -107,4 +175,4 @@ See http://dev.perl.org/licenses/ for more information.
 
 =cut
 
-1; # End of Test::Structure
+1; 
