@@ -41,16 +41,18 @@ our @EXPORT = qw{ has_includes
                   has_subs 
                   has_comments 
                   has_pod
-
-                  _pkg2path
-                  _doc
                };
-
+# PRIVATE: take My::Package and build the right path for it
 sub _pkg2path { catfile( split /::/, shift ) . '.pm' };
+
+# PRIVATE: build up a PPI::Document for the given package
 sub _doc { 
    my $pkg = shift;
    eval sprintf q{require %s}, $pkg;
-   PPI::Document->new( $INC{_pkg2path($pkg)} );
+   my $doc = PPI::Document->new( $INC{Test::Structure::_pkg2path($pkg)} || $pkg );
+use Util::Log;
+   DUMP {DOC => $doc, IN => \@_, PKG => $pkg} unless $doc;
+   $doc;
 }
 
 =head2 has_includes
@@ -60,7 +62,7 @@ sub _doc {
 sub has_includes ($@) {
    my $pkg = shift;
    my $tb  = $CLASS->builder;
-   my $doc = _doc($pkg);
+   my $doc = Test::Structure::_doc($pkg);
    my %inc = map{ $_->module => 1 }
              @{ $doc->find('PPI::Statement::Include') } ;
    my @missing =  grep{ ! $inc{$_} } @_ ;
@@ -79,7 +81,7 @@ sub has_includes ($@) {
 sub has_subs {
    my $pkg = shift;
    my $tb  = $CLASS->builder;
-   my $doc = _doc($pkg);
+   my $doc = Test::Structure::_doc($pkg);
    my %subs = map {$_->name => 1} 
               grep{ !$_->isa('PPI::Statement::Scheduled')} 
               @{$doc->find('PPI::Statement::Sub')};
@@ -101,7 +103,7 @@ sub has_subs {
 sub has_pod ($) {
    my $pkg = shift;
    my $tb  = $CLASS->builder;
-   $tb->ok( _doc($pkg)->find_any('PPI::Token::Pod'), sprintf q{Package %s has POD.}, $pkg ) 
+   $tb->ok( Test::Structure::_doc($pkg)->find_any('PPI::Token::Pod'), sprintf q{Package %s has POD.}, $pkg ) 
       || $tb->diag( sprintf q{Package %s does not seem to have any POD.}, $pkg );
 }
 
@@ -112,7 +114,7 @@ sub has_pod ($) {
 sub has_comments ($) {
    my $pkg = shift;
    my $tb  = $CLASS->builder;
-   $tb->ok( _doc($pkg)->find_any('PPI::Token::Comment'), sprintf q{Package %s has comments.}, $pkg ) 
+   $tb->ok( Test::Structure::_doc($pkg)->find_any('PPI::Token::Comment'), sprintf q{Package %s has comments.}, $pkg ) 
       || $tb->diag( sprintf q{Package %s does not seem to have any comments.}, $pkg );
 }
 
