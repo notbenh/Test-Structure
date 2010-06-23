@@ -14,11 +14,11 @@ Test::Structure - Test for the structure of a package
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 =head1 SYNOPSIS
 
@@ -50,8 +50,6 @@ sub _doc {
    my $pkg = shift;
    eval sprintf q{require %s}, $pkg;
    my $doc = PPI::Document->new( $INC{Test::Structure::_pkg2path($pkg)} || $pkg );
-use Util::Log;
-   DUMP {DOC => $doc, IN => \@_, PKG => $pkg} unless $doc;
    $doc;
 }
 
