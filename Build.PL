@@ -9,6 +9,7 @@ my $builder = Module::Build->new(
     dist_version_from   => 'lib/Test/Structure.pm',
     build_requires => {
         'Test::More' => 0,
+        'PPI' => 0,
     },
     add_to_cleanup      => [ 'Test-Structure-*' ],
     create_makefile_pl => 'traditional',
